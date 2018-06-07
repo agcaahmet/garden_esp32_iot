@@ -21,7 +21,20 @@ double sens_val_moist = 0;
 double sens_val_hmdty = 0;
 double sens_val_temp = 0;
 bool wifi_connected = false;
+long total_watering = 0;
+long watering_limit = 50000;
 
+enum stateType
+{
+	STATE_WAIT_FOR_LL = 0,
+	STATE_MONITOR_LL = 1,
+	STATE_WATERING = 2,
+	STATE_WAIT_AFTER_WATERING =3,
+	STATE_MONITOR_HL = 4,
+	STATE_WATERING_LIMIT = 5,
+};
+
+stateType state = STATE_WAIT_FOR_LL;
 // the setup function runs once when you press reset or power the board
 void setup() {
 	Serial.begin(921600);
@@ -39,6 +52,8 @@ void setup() {
 	xTaskCreatePinnedToCore(task_temp_read, "temp_read", 2048, NULL, 10, NULL, 1);
 	xTaskCreatePinnedToCore(task_serial, "task_serial", 2048, NULL, 1, NULL, 0); 
 	xTaskCreatePinnedToCore(task_IoT, "task_IoT", 2048, NULL, 5, NULL, 0);
+	xTaskCreatePinnedToCore(task_check_connection, "task_check_connection", 2048, NULL, 4, NULL, 0);
+	xTaskCreatePinnedToCore(task_fsm, "task_fsm", 1024, NULL, 6, NULL, 0);
 
 
 }
@@ -88,7 +103,7 @@ void task_sensor_read(void * parameter)
 		//Serial.print(sens_moist);
 		//Serial.print("   Humudity:");
 		//Serial.println(sens_hmdty);
-		delay(50);   
+		delay(100);   
 	}
 	vTaskDelete(NULL);
 }
@@ -168,13 +183,19 @@ void task_temp_read(void * parameter)
 	vTaskDelete(NULL);
 }
 
-
 void task_serial(void * parameter)
 {
 	delay(2000);
 	while (true)
 	{
-		Serial.print("Temp:");
+		if (total_watering > 0)
+		{
+			total_watering--;
+		}
+
+		Serial.print("State: ");
+		Serial.print(state);
+		Serial.print("    Temp:");
 		Serial.print(sens_val_temp);
 		Serial.print("    Moist:");
 		Serial.print(sens_val_moist);
@@ -185,14 +206,13 @@ void task_serial(void * parameter)
 	vTaskDelete(NULL);
 }
 
-
 void task_IoT(void * parameter)
 {
 	WiFiClient clientIoT;
 
 	// ThingSpeak Settings
 	const int channelID = 509184;
-	String writeAPIKey = "MV5DJEW7VDOC1F1B"; // write API key for your ThingSpeak Channel
+	String writeAPIKey = "NCEVIYDHZVS7W1QD"; // write API key for your ThingSpeak Channel
 	const char* serverIoT = "api.thingspeak.com";
 
 	while (true)
@@ -206,6 +226,10 @@ void task_IoT(void * parameter)
 			body += String(sens_val_hmdty);
 			body += "&field3=";
 			body += String(sens_val_moist);
+			body += "&field3=";
+			body += String(sens_val_moist);
+			body += "&field4=";
+			body += String(state);
 			clientIoT.print("POST /update HTTP/1.1\n");
 			clientIoT.print("Host: api.thingspeak.com\n");
 			clientIoT.print("Connection: close\n");
@@ -258,6 +282,93 @@ void WiFiEvent(WiFiEvent_t event) {
 	case SYSTEM_EVENT_STA_DISCONNECTED:
 		wifi_connected = false;
 		Serial.println("Wifi lost connection!");
+
 		break;
 	}
+}
+void task_check_connection(void * parameter)
+{
+	while (true)
+	{
+		delay(100000);
+		if (!wifi_connected)
+		{
+			connectToWiFi();
+		}
+	}
+	vTaskDelete(NULL);
+}
+void task_fsm(void * parameter)
+{
+	const double moist_ll = 68;
+	const double moist_hl = 75;
+	long monitor_ll_start = 0;
+	long monitor_ll_thr_time = 30000;
+	long monitor_hl_start = 0;
+	long monitor_hl_thr_time = 30000;
+	while (true)
+	{
+		switch (state)
+		{
+		case STATE_WAIT_FOR_LL:
+			if (sens_val_moist < moist_ll)
+			{
+				state = STATE_MONITOR_LL;
+				monitor_ll_start = millis();
+			}
+			break;
+		case STATE_MONITOR_LL:
+
+			if ((millis() - monitor_ll_start) > monitor_ll_thr_time)
+			{
+				state = STATE_WATERING;
+			}
+			else if (sens_val_moist > (moist_ll + 1))
+			{
+				state = STATE_WAIT_FOR_LL;
+			}
+
+			break;
+		case STATE_WATERING:
+			if (total_watering < watering_limit)
+			{
+				digitalWrite(PIN_MOTOR, HIGH);
+				delay(10000);
+				digitalWrite(PIN_MOTOR, LOW);
+				delay(10000);
+				total_watering += 10000;
+				state = STATE_WAIT_AFTER_WATERING;
+			}
+			else
+			{
+				state = STATE_WATERING_LIMIT;
+			}
+
+			break;
+		case STATE_WAIT_AFTER_WATERING:
+			delay(60000);
+			state = STATE_MONITOR_HL;
+			monitor_hl_start = millis();
+			break;
+		case STATE_MONITOR_HL:
+			if ((millis() - monitor_hl_start) > monitor_hl_thr_time)
+			{
+				state = STATE_WAIT_FOR_LL;
+			}
+			else if (sens_val_moist < moist_hl)
+			{
+				state = STATE_WATERING;
+			}
+			break;
+		case STATE_WATERING_LIMIT:
+			delay(20000);
+			state = STATE_WAIT_FOR_LL;
+			break;
+		default:
+			state = STATE_WAIT_FOR_LL;
+			break;
+		}
+		delay(100);
+	}
+	vTaskDelete(NULL);
 }
