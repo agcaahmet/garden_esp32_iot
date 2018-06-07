@@ -6,10 +6,12 @@
 #include <WiFi.h>
 #include <OneWire.h>
 
-#define PIN_MOIST_SENS	36
-#define PIN_HMDTY_SENS	39
-#define PIN_MOTOR		26
+#define PIN_MOIST_SENS	33
+#define PIN_SENS_EXC_P	27
+#define PIN_SENS_EXC_N	12
+#define PIN_MOTOR		22
 #define PIN_TEMP_SENS	25
+#define PIN_BLINK		16
 
 #define WIFI_SSID		"khorfo_net"
 #define WIFI_PASS		"ahmet_ipek_12082004"
@@ -18,11 +20,11 @@
 OneWire ds(PIN_TEMP_SENS); 
 
 double sens_val_moist = 0;
-double sens_val_hmdty = 0;
 double sens_val_temp = 0;
 bool wifi_connected = false;
 long total_watering = 0;
-long watering_limit = 50000;
+long watering_limit = 50000; 
+long mc_min = 0;
 
 enum stateType
 {
@@ -41,12 +43,16 @@ void setup() {
 
 	connectToWiFi();
 
+	pinMode(PIN_BLINK, OUTPUT);
 	pinMode(PIN_MOIST_SENS, INPUT);
-	pinMode(PIN_HMDTY_SENS, INPUT);
+	pinMode(PIN_MOTOR, OUTPUT);
+	pinMode(PIN_SENS_EXC_P, OUTPUT);
+	pinMode(PIN_SENS_EXC_N, OUTPUT);
 	pinMode(PIN_MOTOR, OUTPUT);
 
 
-	//digitalWrite(PIN_MOTOR, HIGH);
+	digitalWrite(PIN_SENS_EXC_P, LOW);
+	digitalWrite(PIN_SENS_EXC_N, LOW);
 
 	xTaskCreatePinnedToCore(task_sensor_read, "sensor_read", 2048, NULL, 11, NULL, 1);
 	xTaskCreatePinnedToCore(task_temp_read, "temp_read", 2048, NULL, 10, NULL, 1);
@@ -54,6 +60,7 @@ void setup() {
 	xTaskCreatePinnedToCore(task_IoT, "task_IoT", 2048, NULL, 5, NULL, 0);
 	xTaskCreatePinnedToCore(task_check_connection, "task_check_connection", 2048, NULL, 4, NULL, 0);
 	xTaskCreatePinnedToCore(task_fsm, "task_fsm", 1024, NULL, 6, NULL, 0);
+	xTaskCreatePinnedToCore(task_blink, "task_blink", 1024, NULL, 2, NULL, 0);
 
 
 }
@@ -67,43 +74,47 @@ void task_sensor_read(void * parameter)
 {
 	int arr_size = 100;
 	int moistArr[100];
-	int hmdtyArr[100];
+
 	for (int i = 0; i < arr_size; i++)
 	{
 		moistArr[i] = 4095;
-		hmdtyArr[i] = 4095;
 	}
 
 
 	int arr_index = 0;
 	double sens_moist = 4095;
-	double sens_hmdty = 4095;
 	double sens_moist_sum = 409500;
-	double sens_hmdty_sum = 409500;
+
 
 	while (true)
 	{
 		sens_moist_sum -= moistArr[arr_index];
-		sens_hmdty_sum -= hmdtyArr[arr_index];
+
+
+		digitalWrite(PIN_SENS_EXC_P, HIGH);
+		digitalWrite(PIN_SENS_EXC_N, LOW);
+		delay(5);
 		moistArr[arr_index] = analogRead(PIN_MOIST_SENS);
-		hmdtyArr[arr_index] = analogRead(PIN_HMDTY_SENS);
+		digitalWrite(PIN_SENS_EXC_P, LOW);
+		digitalWrite(PIN_SENS_EXC_N, HIGH);
+		delay(5);
+		digitalWrite(PIN_SENS_EXC_P, LOW);
+		digitalWrite(PIN_SENS_EXC_N, LOW);
+
 		sens_moist_sum += moistArr[arr_index];
-		sens_hmdty_sum += hmdtyArr[arr_index];
+
 		arr_index = (arr_index + 1) % arr_size;
 
-		sens_hmdty = sens_hmdty_sum / arr_size;
 		sens_moist = sens_moist_sum / arr_size;
 
-		sens_val_hmdty = (4095 - sens_hmdty) / 4095 * 100;
-		sens_val_moist = (4095 - sens_moist) / 4095 * 100;
+		sens_val_moist = sens_moist / 4095 * 100;
 
 		//Serial.print("index:");
 		//Serial.print(arr_index);
 		//Serial.print("  Moisture:");
-		//Serial.print(sens_moist);
-		//Serial.print("   Humudity:");
-		//Serial.println(sens_hmdty);
-		delay(100);   
+		//Serial.println(sens_moist);
+
+		delay(90);   
 	}
 	vTaskDelete(NULL);
 }
@@ -193,15 +204,30 @@ void task_serial(void * parameter)
 			total_watering--;
 		}
 
+
+		mc_min = millis() / 60000;
 		Serial.print("State: ");
 		Serial.print(state);
 		Serial.print("    Temp:");
 		Serial.print(sens_val_temp);
 		Serial.print("    Moist:");
 		Serial.print(sens_val_moist);
-		Serial.print("    Hmdty:");
-		Serial.println(sens_val_hmdty);
+		Serial.print("    mc_min:");
+		Serial.println(mc_min);
 		delay(1000);
+	}
+	vTaskDelete(NULL);
+}
+
+void task_blink(void * parameter)
+{
+
+	while (true)
+	{
+		digitalWrite(PIN_BLINK, HIGH);
+		delay(750);
+		digitalWrite(PIN_BLINK, LOW);
+		delay(750);
 	}
 	vTaskDelete(NULL);
 }
@@ -223,9 +249,7 @@ void task_IoT(void * parameter)
 			String body = "&field1=";
 			body += String(sens_val_temp);
 			body += "&field2=";
-			body += String(sens_val_hmdty);
-			body += "&field3=";
-			body += String(sens_val_moist);
+			body += String(mc_min);
 			body += "&field3=";
 			body += String(sens_val_moist);
 			body += "&field4=";
@@ -300,8 +324,8 @@ void task_check_connection(void * parameter)
 }
 void task_fsm(void * parameter)
 {
-	const double moist_ll = 68;
-	const double moist_hl = 75;
+	const double moist_ll = 40;
+	const double moist_hl = 45;
 	long monitor_ll_start = 0;
 	long monitor_ll_thr_time = 30000;
 	long monitor_hl_start = 0;
