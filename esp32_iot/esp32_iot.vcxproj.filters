@@ -21,5 +21,8 @@
     <ClInclude Include="__vm\.esp32_iot.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="hidden_keys.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

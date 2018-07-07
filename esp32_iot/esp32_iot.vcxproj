@@ -47,7 +47,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>D:\Arduino\hardware\espressif\esp32\libraries\WiFi\src;$(ProjectDir)..\..\..\..\..\Arduino Sketches\libraries\OneWire;$(ProjectDir)..\..\..\..\..\Arduino Sketches\libraries\ArduinoJson;D:\Arduino\libraries;D:\Arduino\hardware\espressif\esp32\libraries;$(ProjectDir)..\..\..\..\..\Arduino Sketches\libraries;D:\Arduino\hardware\espressif\esp32\cores\esp32;D:\Arduino\hardware\espressif\esp32\cores\esp32\libb64;D:\Arduino\hardware\espressif\esp32\variants\esp32;$(ProjectDir)..\esp32_iot;C:\Users\ahmet\AppData\Local\arduino15\packages\esp8266\tools\xtensa-lx106-elf-gcc\1.20.0-26-gb404fb9-2\xtensa-lx106-elf\include\c++\4.8.2;C:\Users\ahmet\AppData\Local\arduino15\packages\esp8266\tools\xtensa-lx106-elf-gcc\1.20.0-26-gb404fb9-2\xtensa-lx106-elf\include\c++\4.8.2\xtensa-lx106-elf;C:\Users\ahmet\AppData\Local\arduino15\packages\esp8266\tools\xtensa-lx106-elf-gcc\1.20.0-26-gb404fb9-2\xtensa-lx106-elf\include;C:\Users\ahmet\AppData\Local\arduino15\packages\esp8266\tools\xtensa-lx106-elf-gcc\1.20.0-26-gb404fb9-2\lib\gcc\xtensa-lx106-elf\4.8.2\include;D:\Arduino\hardware\espressif\esp32\tools\sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\esp32_iot;D:\Arduino\hardware\espressif\esp32\libraries\WiFi\src;$(ProjectDir)..\..\..\..\..\Arduino Sketches\libraries\OneWire;$(ProjectDir)..\..\..\..\..\Arduino Sketches\libraries\ArduinoJson;D:\Arduino\libraries;$(ProjectDir)..\..\..\..\..\Arduino Sketches\libraries;D:\Arduino\hardware\espressif\esp32\libraries;D:\Arduino\hardware\espressif\esp32\cores\esp32;D:\Arduino\hardware\espressif\esp32\cores\esp32\libb64;D:\Arduino\hardware\espressif\esp32\variants\esp32;C:\Users\ahmet\AppData\Local\arduino15\packages\esp8266\tools\xtensa-lx106-elf-gcc\1.20.0-26-gb404fb9-2\xtensa-lx106-elf\include\c++\4.8.2;C:\Users\ahmet\AppData\Local\arduino15\packages\esp8266\tools\xtensa-lx106-elf-gcc\1.20.0-26-gb404fb9-2\xtensa-lx106-elf\include\c++\4.8.2\xtensa-lx106-elf;C:\Users\ahmet\AppData\Local\arduino15\packages\esp8266\tools\xtensa-lx106-elf-gcc\1.20.0-26-gb404fb9-2\xtensa-lx106-elf\include;C:\Users\ahmet\AppData\Local\arduino15\packages\esp8266\tools\xtensa-lx106-elf-gcc\1.20.0-26-gb404fb9-2\lib\gcc\xtensa-lx106-elf\4.8.2\include;D:\Arduino\hardware\espressif\esp32\tools\sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>$(ProjectDir)__vm\.esp32_iot.vsarduino.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
       <PreprocessorDefinitions>__ESP32_ESp32__;__ESP32_ESP32__;ESP_PLATFORM;HAVE_CONFIG_H;F_CPU=240000000L;ARDUINO=10802;ARDUINO_ESP32_DEV;ARDUINO_ARCH_ESP32;ESP32;CORE_DEBUG_LEVEL=0;__cplusplus=201103L;_VMICRO_INTELLISENSE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -82,6 +82,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="hidden_keys.h" />
     <ClInclude Include="__vm\.esp32_iot.vsarduino.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

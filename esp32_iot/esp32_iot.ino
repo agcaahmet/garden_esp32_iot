@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include <OneWire.h>
 #include <ArduinoJson.h>
+#include "hidden_keys.h"
 
 #define PIN_MOIST_SENS	33
 #define PIN_SENS_EXC_P	27
@@ -15,8 +16,8 @@
 #define PIN_TEMP_SENS	25
 #define PIN_BLINK		16
 
-#define WIFI_SSID		"khorfo_net"
-#define WIFI_PASS		"ahmet_ipek_12082004"
+#define WIFI_SSID		_WIFI_SSID
+#define WIFI_PASS		_WIFI_PASS
 #define WIFI_CONNECTION_THRESHOLD 10000
 #define WATERING_DURATION	15000
 #define WATERING_PERIOD_IN_MIN   720
@@ -24,8 +25,8 @@
 
 // ThingSpeak Settings
 const int channelID = 509184;
-String writeAPIKey = "NCEVIYDHZVS7W1QD"; // write API key for your ThingSpeak Channel
-String readAPIKey = "70XM64A4VSZO9WTA"; // read API key for your ThingSpeak Channel
+String writeAPIKey = _writeAPIKey; // write API key for your ThingSpeak Channel
+String readAPIKey = _readAPIKey; // read API key for your ThingSpeak Channel
 String APIkey = "509184";
 const char* serverIoT = "api.thingspeak.com";
 
