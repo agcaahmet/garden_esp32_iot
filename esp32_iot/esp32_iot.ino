@@ -19,7 +19,7 @@
 #define WIFI_SSID		_WIFI_SSID
 #define WIFI_PASS		_WIFI_PASS
 #define WIFI_CONNECTION_THRESHOLD 10000
-#define WATERING_DURATION	15000
+#define WATERING_DURATION	35000
 #define WATERING_PERIOD_IN_MIN   720
 
 
@@ -499,7 +499,7 @@ void check_watering_cmd()
 			time_hour = ts_datetime.substring(11, 13).toInt();
 			time_min = ts_datetime.substring(14, 16).toInt();
 
-			if ((time_hour == 14 && (time_min < 10)) || (time_hour == 3 && (time_min < 10)))
+			if ((time_hour == 15 && (time_min < 10)) || (time_hour == 3 && (time_min < 10)))
 			{
 				watering_cmd = true;
 				watering_time_next = mc_min + WATERING_PERIOD_IN_MIN;
