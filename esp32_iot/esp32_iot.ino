@@ -36,11 +36,11 @@ OneWire ds(PIN_TEMP_SENS);
 
 double sens_val_moist = 0;
 double sens_val_temp = 0;
-bool wifi_connected = false;
 long total_watering = 0;
 long watering_limit = 1000000; 
 long mc_min = 0;
 String mc_min_rb_str = "-1";
+long mc_min_rb = -1;
 String ts_datetime = "0";
 int watering_time_next = 360;
 bool watering_cmd = false;
@@ -244,12 +244,12 @@ void task_serial(void * parameter)
 		//Serial.println(mc_min);
 
 
-		Serial.print("RH ST:");
-		Serial.print(relay_high_st_time);
-		Serial.print("   RHT:");
-		Serial.print(relay_high_time);
-		Serial.print("   MAD");
-		Serial.println(motor_active_duration);
+		//Serial.print("RH ST:");
+		//Serial.print(relay_high_st_time);
+		//Serial.print("   RHT:");
+		//Serial.print(relay_high_time);
+		//Serial.print("   MAD");
+		//Serial.println(motor_active_duration);
 
 		delay(1000);
 	}
@@ -273,20 +273,21 @@ void task_IoT(void * parameter)
 {
 	WiFiServer server(80);
 	WiFiClient clientIoT;
+	WiFiClient clientIoT2;
 	delay(20000);
 
 	while (true)
 	{
-		if (wifi_connected && clientIoT.connect(serverIoT, 80)) {
+		if (WiFi.isConnected() && clientIoT.connect(serverIoT, 80)) {
 			write_TS(clientIoT);
 		}
 		clientIoT.stop();
 		delay(1000);
-		clientIoT = server.available();
-		if (wifi_connected && clientIoT.connect(serverIoT, 80)) {
-			read_TS(clientIoT);
+		clientIoT2 = server.available();
+		if (WiFi.isConnected() && clientIoT2.connect(serverIoT, 80)) {
+			read_TS(clientIoT2);
 		}
-		clientIoT.stop();
+		clientIoT2.stop();
 
 		//Serial.println(uxTaskGetStackHighWaterMark(NULL));
 		delay(14000);
@@ -319,14 +320,12 @@ void WiFiEvent(WiFiEvent_t event) {
 	switch (event) {
 	case SYSTEM_EVENT_STA_GOT_IP:
 		//When connected set 
-		wifi_connected = true;
 		Serial.println("");
 		Serial.println("WiFi connected");
 		Serial.print("IP address: ");
 		Serial.println(WiFi.localIP());
 		break;
 	case SYSTEM_EVENT_STA_DISCONNECTED:
-		wifi_connected = false;
 		Serial.println("Wifi lost connection!");
 
 		break;
@@ -334,13 +333,36 @@ void WiFiEvent(WiFiEvent_t event) {
 }
 void task_check_connection(void * parameter)
 {
+	int wifi_conn_attempt_count = 0;
 	while (true)
 	{
-		delay(100000);
-		if (!wifi_connected)
+		delay(200000);
+		
+		if (!WiFi.isConnected())
 		{
+
+			if (wifi_conn_attempt_count > 10)
+			{
+				Serial.println("Esp is restarting because of wifi connection attempt count threshold!");
+				WiFi.disconnect(true);
+				delay(2000);
+				ESP.restart();
+			}
 			connectToWiFi();
+			wifi_conn_attempt_count++;
+			Serial.print("Wifi Connection Attempt number: ");
+			Serial.println(wifi_conn_attempt_count);
 		}
+		else
+		{
+			wifi_conn_attempt_count = 0;
+		}
+
+		//if ((mc_min > 10) && ((mc_min_rb > mc_min) || ((mc_min - mc_min_rb) > 30)))
+		//{
+		//	Serial.println("ESP is restrating because of thingspeak could not be read!");
+		//	ESP.restart();
+		//}
 	}
 	vTaskDelete(NULL);
 }
@@ -368,17 +390,20 @@ void task_fsm(void * parameter)
 		case STATE_WATERING:
 			if (total_watering < watering_limit)
 			{
+				Serial.println("Watering started..");
 				digitalWrite(PIN_MOTOR, HIGH);
 				delay(WATERING_DURATION);
 				digitalWrite(PIN_MOTOR, LOW);
 				delay(WATERING_DURATION);
 				total_watering += 100000;
 				state = STATE_WAIT_FOR_CMD;
+				Serial.println("Watering finished.");
 			}
 			else
 			{
 				state = STATE_WATERING_LIMIT;
 				watering_limit_start = millis();
+				Serial.println("Watering limit reached.");
 			}
 
 			break;
@@ -481,13 +506,14 @@ bool decodeJSON(char *json) {
 		String entry_id = channel["entry_id"];
 		String field2value = channel["field2"];
 		mc_min_rb_str = field2value;
+		mc_min_rb = mc_min_rb_str.toInt();
 		Serial.print(" Field2 entry number [" + entry_id + "] had a value of: "); Serial.println(field2value);
 	}
 }
 
 void check_watering_cmd()
 {
-	long mc_min_rb = mc_min_rb_str.toInt();
+	
 
 	int time_hour = -1;
 	int time_min = -1;
@@ -512,14 +538,10 @@ void check_watering_cmd()
 	}
 	else
 	{
-		if (mc_min == watering_time_next)
-		{
-			watering_cmd = true;
-		}
-		else if (mc_min > watering_time_next)
+		if (mc_min > watering_time_next)
 		{
 			watering_time_next += WATERING_PERIOD_IN_MIN;
-			watering_cmd = false;
+			watering_cmd = true;
 		}
 		else
 		{
